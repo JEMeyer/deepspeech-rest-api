@@ -55,7 +55,7 @@ model and ``deepspeech_model.scorer`` for the scorer.
 
 .. _Alembic: https://alembic.sqlalchemy.org/en/latest/tutorial.html#the-migration-environment
 
-    You will need a database setup. To use a basic database with th same connection string as the currently configed database in the .env file, run 
+    You will need a database setup. To use a basic database with the same connection string as the currently configed database in the .env file, run 
 
     $ docker-compose up -d
     
