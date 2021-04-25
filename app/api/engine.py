@@ -29,12 +29,15 @@ class SpeechToTextEngine:
     CHANNELS = 1
     BLOCKS_PER_SECOND = 50
 
-    def __init__(self, scorer='deepspeech_model.scorer') -> None:
+    def __init__(self, model='english') -> None:
         """ Initializing the DeepSpeech model """
 
-        self.model = Model(model_path=Path(__file__).parents[2].joinpath('deepspeech_model.pbmm').absolute().as_posix())
+        model_path = f'models/{model}/deepspeech_model.pbmm'
+        scorer_path = f'models/{model}/deepspeech_model.scorer'
+
+        self.model = Model(model_path=Path(__file__).parents[2].joinpath(model_path).absolute().as_posix())
         self.model.enableExternalScorer(
-            scorer_path=Path(__file__).parents[2].joinpath(scorer).absolute().as_posix())
+            scorer_path=Path(__file__).parents[2].joinpath(scorer_path).absolute().as_posix())
         self.vad = webrtcvad.Vad(mode=3)
         self.sample_rate = self.SAMPLE_RATE
         self.buffer_queue = queue.Queue()
