@@ -2,7 +2,7 @@ import websocket
 from halo import Halo
 
 websocket = websocket.WebSocket()
-websocket.connect('ws://0.0.0.0:8000/api/stt/ws')
+websocket.connect('ws://0.0.0.0:8000/api/v1/stt/ws')
 
 try:
     with Halo(text='Audio file STT with WebSocket...', text_color='cyan', spinner='spin'):
