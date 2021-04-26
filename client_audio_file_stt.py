@@ -7,6 +7,7 @@ websocket.connect('ws://0.0.0.0:8000/api/v1/stt/ws')
 try:
     with Halo(text='Audio file STT with WebSocket...', text_color='cyan', spinner='spin'):
         with open('audio/4507-16021-0012.wav', mode='rb') as file:
+            # audio/4507-16021-0012.wav
             # audio/I-am-very-busy-today_chinese.wav
             websocket.send('model:english')
             #websocket.send('model:chinese')
