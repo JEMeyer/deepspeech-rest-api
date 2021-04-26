@@ -77,24 +77,38 @@ async def transcribe_audio_http(request: Request, user) -> HTTPResponse:
 
 async def transcribe_audio_ws(request, websocket) -> None:
     """ Audio file transcription route using a WebSocket. """
-
     all_hot_words = []
     while True:
         try:
             data = await websocket.recv()
             if isinstance(data, str):
-                data = json.loads(data)
-
-                if data:
-                    all_hot_words = stt_engine.add_hot_words(data)
+                dataType, payload = data.split(':', 1)
+                if dataType == 'hotwords':
+                    data = json.loads(payload)
+                    if data:
+                        # If no model yet (no call to set model), default to english
+                        try:
+                            local_engine
+                        except NameError:
+                            local_engine = SpeechToTextEngine(model = 'english')
+                        all_hot_words = local_engine.add_hot_words(data)
+                elif dataType == 'model':
+                    local_engine = SpeechToTextEngine(model = payload)
+                
                 continue
             if isinstance(data, bytes):
+                # If no model yet (no call to set model or hotwords), default to english
+                try:
+                    local_engine
+                except NameError:
+                    local_engine = SpeechToTextEngine(model = 'english')
+
                 inference_start = perf_counter()
-                text = await sanic_app.loop.run_in_executor(executor, lambda: stt_engine.run(data))
+                text = await sanic_app.loop.run_in_executor(executor, lambda: local_engine.run(data))
                 inference_end = perf_counter() - inference_start
-                await websocket.send(json.dumps(SttResponse(text, inference_end).__dict__))
+                await websocket.send(json.dumps(SttResponse(text, inference_end).__dict__, ensure_ascii=False))
                 logger.warning(f'Received {request.method} request at {request.path}')
-                stt_engine.erase_hot_word(all_hot_words)
+                local_engine.erase_hot_word(all_hot_words)
         except WebSocketConnectionClosedException as wex:
             logger.warning(f'Exception is: {str(wex)}')
             await websocket.send(json.dumps(SttResponse('Websocket connection closed').__dict__))
