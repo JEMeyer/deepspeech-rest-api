@@ -46,6 +46,10 @@ and install the project in editable mode (locally).
         -O deepspeech_model.pbmm
     $ wget https://github.com/mozilla/DeepSpeech/releases/download/v0.9.3/deepspeech-0.9.3-models.scorer \
         -O deepspeech_model.scorer
+    $ wget https://github.com/mozilla/DeepSpeech/releases/download/v0.9.3/deepspeech-0.9.3-models-zh-CN.pbmm \
+        -O deepspeech_model.pbmm
+    $ wget https://github.com/mozilla/DeepSpeech/releases/download/v0.9.3/deepspeech-0.9.3-models-zh-CN.scorer \
+        -O deepspeech_model.scorer
 
 
 For other languages, you can place the two files in the current working directory under the names ``deepspeech_model.pbmm`` for the

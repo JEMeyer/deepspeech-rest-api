@@ -8,7 +8,7 @@ from sanic.exceptions import InvalidUsage
 from sanic.log import logger
 from sanic.request import Request
 from sanic.response import json as sanic_json, HTTPResponse
-from sanic_jwt import protected
+from sanic_jwt import protected, inject_user
 from websocket import WebSocketConnectionClosedException
 
 from app import app_bp
@@ -21,6 +21,8 @@ sanic_app = Sanic.get_app(name='DeepSpeech REST API')
 stt_engine = SpeechToTextEngine()
 executor = ThreadPoolExecutor()
 
+stt_engines = {
+}
 
 @app_bp.route('')
 async def index(request: Request) -> HTTPResponse:
@@ -28,25 +30,38 @@ async def index(request: Request) -> HTTPResponse:
 
 
 @api_bp.route('/stt/http', methods=['POST'])
+@inject_user()
 @protected()
-async def transcribe_audio_http(request: Request) -> HTTPResponse:
+async def transcribe_audio_http(request: Request, user) -> HTTPResponse:
     """ Audio file transcription route using HTTP. """
-
+    args = request.get_args()
+    if (args != {}):
+        model = args.get('model')
+    else:
+        model = 'english' # feel free to change this however you like
+    
     # The audio to be transcribed
     audio = request.files.get('audio')
 
     # The hot-words with their boosts to be used for transcribing the audio
     data = request.form
 
+    # This all happens syncronously for HTTP, but setting/getting will be
+    # separate for sockets (only make on initial call) and wanted to show the
+    # flow for how we'll set and retrieve later
+    stt_engines_key = f'{user.username}-{model}'
+    stt_engines[stt_engines_key] = SpeechToTextEngine(model = model)
+    local_engine = stt_engines[stt_engines_key]
+
     all_hot_words = []
     if data:
-        all_hot_words = stt_engine.add_hot_words(data)
+        all_hot_words = local_engine.add_hot_words(data)
     if not audio:
         raise InvalidUsage('Audio not provided')
     inference_start = perf_counter()
 
     # Running the transcription
-    text = await sanic_app.loop.run_in_executor(executor, lambda: stt_engine.run(audio.body))
+    text = await sanic_app.loop.run_in_executor(executor, lambda: local_engine.run(audio.body))
     inference_end = perf_counter() - inference_start
 
     # Logging on the prompt the outcome of the transcription process
@@ -55,30 +70,45 @@ async def transcribe_audio_http(request: Request) -> HTTPResponse:
     logger.info('----------------------------------------------------------------------------')
 
     # Explicitly erasing a hot-word from the language model (even though they are removed when the request is done)
-    stt_engine.erase_hot_word(all_hot_words)
+    local_engine.erase_hot_word(all_hot_words)
+    stt_engines.pop(stt_engines_key)
     return sanic_json(SttResponse(text, inference_end).__dict__)
 
 
 async def transcribe_audio_ws(request, websocket) -> None:
     """ Audio file transcription route using a WebSocket. """
-
     all_hot_words = []
     while True:
         try:
             data = await websocket.recv()
             if isinstance(data, str):
-                data = json.loads(data)
-
-                if data:
-                    all_hot_words = stt_engine.add_hot_words(data)
+                dataType, payload = data.split(':', 1)
+                if dataType == 'hotwords':
+                    data = json.loads(payload)
+                    if data:
+                        # If no model yet (no call to set model), default to english
+                        try:
+                            local_engine
+                        except NameError:
+                            local_engine = SpeechToTextEngine(model = 'english')
+                        all_hot_words = local_engine.add_hot_words(data)
+                elif dataType == 'model':
+                    local_engine = SpeechToTextEngine(model = payload)
+                
                 continue
             if isinstance(data, bytes):
+                # If no model yet (no call to set model or hotwords), default to english
+                try:
+                    local_engine
+                except NameError:
+                    local_engine = SpeechToTextEngine(model = 'english')
+
                 inference_start = perf_counter()
-                text = await sanic_app.loop.run_in_executor(executor, lambda: stt_engine.run(data))
+                text = await sanic_app.loop.run_in_executor(executor, lambda: local_engine.run(data))
                 inference_end = perf_counter() - inference_start
-                await websocket.send(json.dumps(SttResponse(text, inference_end).__dict__))
+                await websocket.send(json.dumps(SttResponse(text, inference_end).__dict__, ensure_ascii=False))
                 logger.warning(f'Received {request.method} request at {request.path}')
-                stt_engine.erase_hot_word(all_hot_words)
+                local_engine.erase_hot_word(all_hot_words)
         except WebSocketConnectionClosedException as wex:
             logger.warning(f'Exception is: {str(wex)}')
             await websocket.send(json.dumps(SttResponse('Websocket connection closed').__dict__))
