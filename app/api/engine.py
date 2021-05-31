@@ -21,6 +21,15 @@ def normalize_audio_input(audio):
     return output
 
 
+class Frame(object):
+    """Represents a "frame" of audio data."""
+
+    def __init__(self, frame_bytes, timestamp, duration):
+        self.bytes = frame_bytes
+        self.timestamp = timestamp
+        self.duration = duration
+
+
 class SpeechToTextEngine:
     """ Class to perform speech-to-text transcription and related functionality """
 
@@ -44,12 +53,9 @@ class SpeechToTextEngine:
         transcribe audio in string format."""
 
         normalized_audio = normalize_audio_input(audio)
-        print(type(normalized_audio))
         audio_streams = BytesIO(normalized_audio)
-        print(type(audio_streams))
         with wave.Wave_read(audio_streams) as wav:
             audio_streams = np.frombuffer(wav.readframes(wav.getnframes()), np.int16)
-            print(type(audio_streams))
         results = self.model.stt(audio_buffer=audio_streams)
         return results
 
@@ -119,12 +125,3 @@ class SpeechToTextEngine:
             yield Frame(audio[offset:offset + n], timestamp, duration)
             timestamp += duration
             offset += n
-
-
-class Frame(object):
-    """Represents a "frame" of audio data."""
-
-    def __init__(self, frame_bytes, timestamp, duration):
-        self.bytes = frame_bytes
-        self.timestamp = timestamp
-        self.duration = duration
