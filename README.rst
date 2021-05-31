@@ -59,6 +59,17 @@ model and ``deepspeech_model.scorer`` for the scorer.
 
 .. _Alembic: https://alembic.sqlalchemy.org/en/latest/tutorial.html#the-migration-environment
 
+    You will need a database setup. To use a basic database with the same connection string as the currently configed database in the .env file, run 
+
+    $ docker-compose up -d
+    
+    within the postgres_docker folder to create a database
+    
+
+    To get the database created with the correct tables and user, run 
+    
+    $ alembic upgrade head
+
 5. Running the server
 
 .. code-block:: console
